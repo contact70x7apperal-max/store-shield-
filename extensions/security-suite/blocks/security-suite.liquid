@@ -1,0 +1,27 @@
+{% comment %}
+  StoreShield app embed block.
+  Merchants turn this on once in Theme editor > App embeds — no per-page setup.
+  It only renders a <script> tag; all the actual logic lives in
+  assets/security-suite.js so it's easy to audit in one place.
+
+  Honesty note (see the app's README for the full version): theme app
+  extension blocks render into the page body, not <head>. That's a Shopify
+  platform limitation, not a shortcut we took — it's why the CSP feature
+  also needs one line pasted into theme.liquid to be fully effective, and
+  the settings page says so.
+{% endcomment %}
+
+<script
+  src="{{ 'security-suite.js' | asset_url }}"
+  data-store-shield
+  data-shop="{{ shop.permanent_domain }}"
+  defer
+></script>
+
+{% schema %}
+{
+  "name": "StoreShield protection",
+  "target": "body",
+  "settings": []
+}
+{% endschema %}

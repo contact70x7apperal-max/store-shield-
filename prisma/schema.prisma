@@ -1,0 +1,72 @@
+// StoreShield database schema.
+// Default provider is SQLite for easy local dev; swap to postgresql/mysql for production
+// (Shopify apps installed on more than one store should not ship with SQLite in production).
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+}
+
+// Per-shop feature toggles set from the admin settings page.
+model ShopSettings {
+  id                    String   @id @default(cuid())
+  shop                  String   @unique
+  cspHardeningEnabled   Boolean  @default(false)
+  cspAllowedDomains     String   @default("")
+  botProtectionEnabled  Boolean  @default(true)
+  rateLimitEnabled      Boolean  @default(true)
+  rateLimitMaxSubmits   Int      @default(5)
+  rateLimitWindowSecs   Int      @default(60)
+  trustBadgeEnabled     Boolean  @default(false)
+  updatedAt             DateTime @updatedAt
+}
+
+// Rolling counters used to rate-limit form submissions per visitor fingerprint.
+// This is deliberately coarse (per shop + fingerprint + minute bucket) — it is
+// meant to blunt casual scripted abuse, not to be a precision fraud system.
+model SubmissionEvent {
+  id            String   @id @default(cuid())
+  shop          String
+  fingerprint   String
+  eventType     String // "form_submit" | "honeypot_triggered" | "rate_limited" | "bot_suspected"
+  createdAt     DateTime @default(now())
+
+  @@index([shop, fingerprint, createdAt])
+}
+
+// Findings from the on-demand theme vulnerability scan.
+model ScanFinding {
+  id          String   @id @default(cuid())
+  shop        String
+  themeId     String
+  assetKey    String
+  ruleId      String
+  severity    String // "high" | "medium" | "low"
+  message     String
+  lineNumber  Int?
+  createdAt   DateTime @default(now())
+
+  @@index([shop, createdAt])
+}
