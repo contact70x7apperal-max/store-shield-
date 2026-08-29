@@ -130,6 +130,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     newBytes: number;
     status: "done" | "failed";
     errorMessage?: string;
+    originalDeleted?: boolean;
+    deleteError?: string;
   }[] = [];
 
   for (const item of batch) {
@@ -204,6 +206,37 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         throw new Error(createErrors[0]?.message ?? "Could not attach the optimized image.");
       }
 
+      // Only ever delete the original after the replacement is confirmed
+      // attached above — a failed optimize (caught below) never reaches
+      // here, so it never costs the merchant their original image. A failed
+      // *deletion*, on the other hand, doesn't roll back the optimize: the
+      // new image stays, and we just report that the old one needs manual
+      // cleanup instead of silently leaving it there unexplained.
+      let originalDeleted = false;
+      let deleteError: string | undefined;
+      try {
+        const deleteResp = await admin.graphql(`#graphql
+          mutation ProductDeleteMedia($productId: ID!, $mediaIds: [ID!]!) {
+            productDeleteMedia(productId: $productId, mediaIds: $mediaIds) {
+              deletedMediaIds
+              mediaUserErrors { field message }
+            }
+          }
+        `, {
+          variables: { productId: item.productId, mediaIds: [item.mediaId] },
+        });
+        const deleteJson = await deleteResp.json();
+        const deleteErrors = deleteJson.data?.productDeleteMedia?.mediaUserErrors ?? [];
+        const deletedIds = deleteJson.data?.productDeleteMedia?.deletedMediaIds ?? [];
+        if (deleteErrors.length > 0 || deletedIds.length === 0) {
+          deleteError = deleteErrors[0]?.message ?? "The original image could not be removed automatically.";
+        } else {
+          originalDeleted = true;
+        }
+      } catch (delErr) {
+        deleteError = delErr instanceof Error ? delErr.message : "The original image could not be removed automatically.";
+      }
+
       await prisma.imageOptimization.create({
         data: {
           shop: session.shop,
@@ -223,6 +256,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         originalBytes,
         newBytes: optimizedBuffer.length,
         status: "done",
+        originalDeleted,
+        deleteError,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -322,15 +357,15 @@ export default function ImageOptimizer() {
     <Page title="Image optimizer">
       <Layout>
         <Layout.Section>
-          <Banner tone="info">
+          <Banner tone="warning">
             <Text as="p">
               Downloads each selected product image, resizes it to the max
-              width below, re-encodes it as WebP at the chosen quality, and
-              adds the result to the product as a <b>new</b> image — it does
-              not touch or delete the original. Once you've checked the
-              result looks right, remove the oversized original yourself
-              from the product's media list. Processes up to 10 images per
-              run to stay within the platform's request time limit.
+              width below, re-encodes it as WebP at the chosen quality,
+              uploads it to the product — and, only once that new image is
+              confirmed attached, <b>deletes the original</b>. This is
+              destructive: a deleted original cannot be recovered from this
+              app. Processes up to 10 images per run to stay within the
+              platform's request time limit.
             </Text>
           </Banner>
         </Layout.Section>
@@ -411,6 +446,8 @@ export default function ImageOptimizer() {
                     {fetcher.data.results.filter((r) => r.status === "done").length} of{" "}
                     {fetcher.data.results.length} optimized successfully
                     {totalSaved > 0 ? ` — saved about ${formatKB(totalSaved)} total.` : "."}
+                    {fetcher.data.results.some((r) => r.status === "done" && !r.originalDeleted) &&
+                      " One or more originals couldn't be deleted automatically — check the log below and remove those manually."}
                     {fetcher.data.results.some((r) => r.status === "failed") &&
                       " Check the log below for what failed and why."}
                   </Text>

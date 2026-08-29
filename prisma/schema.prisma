@@ -3,7 +3,7 @@
 // (Shopify apps installed on more than one store should not ship with SQLite in production).
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -72,24 +72,23 @@ model ScanFinding {
 }
 
 // One row per image the Image Optimizer has re-encoded. The optimized image
-// is added to the product as a new media item, not a replacement - the
-// original is left alone, so this log is the only record of what we did and
-// how much it actually saved, in case the merchant wants to verify before
-// deleting the original themselves.
+// is uploaded and attached to the product first; only once that succeeds is
+// the original deleted. This log is the durable record of what was done and
+// how much it saved, since the original itself is no longer there to check.
 model ImageOptimization {
-  id              String   @id @default(cuid())
-  shop            String
-  productId       String
-  productTitle    String
+  id             String   @id @default(cuid())
+  shop           String
+  productId      String
+  productTitle   String
   originalMediaId String
-  newMediaId      String?
-  originalBytes   Int
-  newBytes        Int?
-  maxWidth        Int
-  quality         Int
-  status          String
-  errorMessage    String?
-  createdAt       DateTime @default(now())
+  newMediaId     String?
+  originalBytes  Int
+  newBytes       Int?
+  maxWidth       Int
+  quality        Int
+  status         String // "done" | "failed"
+  errorMessage   String?
+  createdAt      DateTime @default(now())
 
   @@index([shop, createdAt])
 }
