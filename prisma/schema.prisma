@@ -3,7 +3,7 @@
 // (Shopify apps installed on more than one store should not ship with SQLite in production).
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
