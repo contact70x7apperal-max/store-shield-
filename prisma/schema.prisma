@@ -70,3 +70,26 @@ model ScanFinding {
 
   @@index([shop, createdAt])
 }
+
+// One row per image the Image Optimizer has re-encoded. The optimized image
+// is added to the product as a new media item, not a replacement - the
+// original is left alone, so this log is the only record of what we did and
+// how much it actually saved, in case the merchant wants to verify before
+// deleting the original themselves.
+model ImageOptimization {
+  id              String   @id @default(cuid())
+  shop            String
+  productId       String
+  productTitle    String
+  originalMediaId String
+  newMediaId      String?
+  originalBytes   Int
+  newBytes        Int?
+  maxWidth        Int
+  quality         Int
+  status          String
+  errorMessage    String?
+  createdAt       DateTime @default(now())
+
+  @@index([shop, createdAt])
+}

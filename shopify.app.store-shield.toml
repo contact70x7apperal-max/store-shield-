@@ -2,15 +2,19 @@
 
 client_id = "a73ac708608a64cf5988324421a81edd"
 name = "store-shield"
-application_url = "https://shopify.dev/apps/default-app-home"
+application_url = "https://store-shield.onrender.com"
 embedded = true
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_themes,write_themes"
+scopes = "read_themes,write_themes,read_products,write_products"
 
 [auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+redirect_urls = [
+  "https://store-shield.onrender.com/auth/callback",
+  "https://store-shield.onrender.com/auth/shopify/callback",
+  "https://store-shield.onrender.com/api/auth/callback"
+]
 
 [webhooks]
 api_version = "2026-10"

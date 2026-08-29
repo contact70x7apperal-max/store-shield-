@@ -23,6 +23,7 @@ export default function App() {
           Protection settings
         </Link>
         <Link to="/app/scan">Security scan</Link>
+        <Link to="/app/images">Image optimizer</Link>
         <Link to="/app/activity">Activity log</Link>
       </NavMenu>
       <Outlet />
